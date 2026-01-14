@@ -1,33 +1,60 @@
 FROM debian:bookworm
 
-RUN apt update && apt install -y \ 
-    curl git jq python3 python3-pip python3-venv pipx openjdk-17-jre docker.io unzip ca-certificates \
+# Fail fast and avoid interactive installs
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Base system dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    git \
+    jq \
+    python3 \
+    python3-pip \
+    python3-venv \
+    pipx \
+    openjdk-17-jre \
+    docker.io \
+    unzip \
  && rm -rf /var/lib/apt/lists/*
 
-#Semgrep
-ENV PIPX_BIN_DIR=/usr/local/bin
+# pipx configuration
 ENV PIPX_HOME=/opt/pipx
+ENV PIPX_BIN_DIR=/usr/local/bin
+ENV PATH="${PIPX_BIN_DIR}:${PATH}"
 
+
+# Semgrep 
 RUN pipx install semgrep
 
-#Gitleaks
-RUN curl -sL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks-linux-amd64.tar.gz \
-    | tar xz -C /usr/local/bin gitleaks 
 
-#Trivy
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-    | sh -s -- -b /usr/local/bin 
+# Gitleaks
+RUN curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_arm64.tar.gz \
+    | tar -xz -C /usr/local/bin gitleaks \
+ && chmod +x /usr/local/bin/gitleaks
 
-#Dependency-Check
-RUN curl -sL https://github.com/jeremylong/DependencyCheck/releases/latest/download/dependency-check-8.15.1-release.zip \
-    -o dc.zip && unzip dc.zip -d /opt/ && rm dc.zip \
-    && ln -s /opt/dependency-check/bin/dependency-check.sh /usr/local/bin/dependency-check
+# Trivy
+RUN curl -fsSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+    | sh -s -- -b /usr/local/bin
 
-#SonarScanner
-RUN curl -sL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip \
-    -o sonar-scanner.zip && unzip sonar-scanner.zip -d /opt/ && rm sonar-scanner.zip \
-    && ln -s /opt/sonar-scanner-4.7.0.2747-linux/bin/sonar-scanner /usr/local/bin/sonar-scanner
+
+# OWASP Dependency-Check
+RUN curl -fsSL https://github.com/jeremylong/DependencyCheck/releases/download/v12.1.0/dependency-check-12.1.0-release.zip \
+    -o dc.zip \
+ && unzip dc.zip -d /opt \
+ && rm dc.zip \
+ && ln -s /opt/dependency-check/bin/dependency-check.sh /usr/local/bin/dependency-check
+
+# SonarScanner (CLI)
+
+RUN curl -fsSL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-8.0.1.6346.zip \
+    -o sonar-scanner.zip \
+ && unzip sonar-scanner.zip -d /opt \
+ && rm sonar-scanner.zip \
+ && ln -s /opt/sonar-scanner-linux/bin/sonar-scanner /usr/local/bin/sonar-scanner
 
 # Cosign
-RUN curl -sL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
-    -o /usr/local/bin/cosign && chmod +x /usr/local/bin/cosign
+RUN curl -fsSL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
+    -o /usr/local/bin/cosign \
+ && chmod +x /usr/local/bin/cosign
