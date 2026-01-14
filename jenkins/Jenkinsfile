@@ -1,0 +1,62 @@
+pipeline {
+    agent {
+        docker {
+            image 'jenkins-agent-tools'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
+
+    environment {
+        REGISTRY = "localhost:5000"
+        IMAGE = "sample-app:${BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Secret Scan') {
+            steps {
+                sh 'gitleaks detect --no-git'
+            }
+        }
+
+        stage('SAST-Semgrep') {
+            steps {
+                sh 'semgrep scan --config=auto'
+            }
+        }
+
+        stage('SAST-SonarQube') {
+            steps {
+                withCredentials([striing(credentialsID: 'sonarqube-token', variable: 'SONARQUBE_TOKEN')]) {
+                    sh '''
+                        sonar-scanner \
+                        -Dsonar.projectKey=sample-app \
+                        -Dsonar.sources=. \
+                        -Dsonar.host.url=http://sonarqube:9000 \
+                        -Dsonar.login=$SONARQUBE_TOKEN
+                    '''
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                docker build -t ${REGISTRY}/${IMAGE} .
+                docker push ${REGISTRY}/${IMAGE}
+                '''
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                sh 'trivy image --severity HIGH,CRITICAL --exit-code 1 ${REGISTRY}/${IMAGE}'
+            }
+        }
+    }
+}
