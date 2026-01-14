@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'jenkins-agent-tools'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
+            args '-v //var/run/docker.sock:/var/run/docker.sock'
         }
     }
 
@@ -16,10 +16,10 @@ pipeline {
         stage('Sanity') {
             steps {
                 sh '''
+                set -e
                 which docker
                 docker version
-                cosign version
-                trivy version
+                docker ps
                 '''
             }
         }
@@ -38,7 +38,7 @@ pipeline {
 
         stage('SAST-SonarQube') {
             steps {
-                withCredentials([striing(credentialsID: 'sonarqube-token', variable: 'SONARQUBE_TOKEN')]) {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONARQUBE_TOKEN')]) {
                     sh '''
                         sonar-scanner \
                         -Dsonar.projectKey=sample-app \
