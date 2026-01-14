@@ -6,15 +6,21 @@ pipeline {
         }
     }
 
-    environment {
-        REGISTRY = "localhost:5000"
-        IMAGE = "sample-app:${BUILD_NUMBER}"
-    }
-
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Sanity') {
+            steps {
+                sh '''
+                which docker
+                docker version
+                cosign version
+                trivy version
+                '''
             }
         }
 
